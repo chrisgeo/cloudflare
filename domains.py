@@ -1,6 +1,13 @@
-import csv
-import aiohttp
+"""
+Google Workspace domain management script for adding domain aliases.
+
+This module provides functionality to bulk add domain aliases to a
+Google Workspace account using the Admin SDK Directory API.
+"""
 import asyncio
+import csv
+
+import aiohttp
 from google.oauth2 import service_account
 
 # Configuration
@@ -13,10 +20,12 @@ credentials = service_account.Credentials.from_service_account_file(
     SERVICE_ACCOUNT_FILE, scopes=SCOPES
 )
 
+
 async def get_access_token():
     """Fetches OAuth 2.0 access token for API requests."""
     request = credentials.with_scopes(SCOPES)
     return request.token
+
 
 async def add_domain_alias(session, alias_domain, primary_domain):
     """Async function to add a domain alias."""
@@ -37,14 +46,17 @@ async def add_domain_alias(session, alias_domain, primary_domain):
             error_text = await response.text()
             print(f"❌ Failed to add {alias_domain}: {error_text}")
 
-async def bulk_upload_domains(csv_file):
+
+async def bulk_upload_domains(csv_path):
     """Reads domains from CSV and adds them asynchronously."""
     async with aiohttp.ClientSession() as session:
         tasks = []
-        with open(csv_file, newline='') as file:
+        with open(csv_path, newline='') as file:
             reader = csv.DictReader(file)
             for row in reader:
-                task = add_domain_alias(session, row['alias_domain'], row['primary_domain'])
+                task = add_domain_alias(
+                    session, row['alias_domain'], row['primary_domain']
+                )
                 tasks.append(task)
 
         await asyncio.gather(*tasks)
