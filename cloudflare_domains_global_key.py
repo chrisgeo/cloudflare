@@ -1,69 +1,53 @@
-import aiohttp
-import asyncio
+"""Fetch all domains from Cloudflare using Global API Key."""
+
 import json
+import os
+import cloudflare
+from cloudflare import Cloudflare
 
 # Cloudflare API Configuration
-EMAIL = $CF_EMAIL
-GLOBAL_API_KEY = (
-    "YOUR_CLOUDFLARE_GLOBAL_API_KEY"  # Full account admin access (be careful!)
-)
-BASE_URL = "https://api.cloudflare.com/client/v4/zones"
-
-# Headers for authentication
-HEADERS = {
-    "X-Auth-Email": EMAIL,
-    "X-Auth-Key": GLOBAL_API_KEY,  # Using Global API Key
-    "Content-Type": "application/json",
-}
+EMAIL = os.getenv("CLOUDFLARE_EMAIL")
+GLOBAL_API_KEY = os.getenv("CLOUDFLARE_GLOBAL_API_KEY")
 
 
-async def fetch_domains(session, page=1, per_page=50):
-    """Fetch domains from Cloudflare with pagination."""
-    async with session.get(
-        BASE_URL, headers=HEADERS, params={"page": page, "per_page": per_page}
-    ) as response:
-        data = await response.json()
-        if data.get("success"):
-            return data.get("result", [])
-        else:
-            print(f"❌ Error fetching page {page}: {data}")
-            return []
+def get_all_domains():
+    """Fetch all domains using the CloudFlare package."""
+    cf = Cloudflare(api_email=EMAIL, api_key=GLOBAL_API_KEY)
+
+    try:
+        # The CloudFlare package handles pagination automatically
+        zones = cf.zones.get(params={"per_page": 50})
+        return zones
+    except cloudflare.CloudFlareAPIError as e:
+        print(f"❌ Error fetching domains: {e}")
+    except cloudflare.CloudFlareInternalError as e:
+        print(f"❌ Internal Cloudflare error: {e}")
+    except ConnectionError as e:
+        print(f"❌ Connection error: {e}")
+
+    return []
 
 
-async def get_all_domains():
-    """Fetch all domains asynchronously."""
-    async with aiohttp.ClientSession() as session:
-        all_domains = []
-        page = 1
-        while True:
-            domains = await fetch_domains(session, page)
-            if not domains:
-                break
-            all_domains.extend(domains)
-            page += 1
-        return all_domains
-
-
-async def save_domains_to_json(domains, json_file="cloudflare_domains.json"):
+def save_domains_to_json(domains, json_file="cloudflare_domains.json"):
     """Save the domains to a JSON file."""
-    with open(json_file, "w") as file:
+    with open(json_file, "w", encoding="utf-8") as file:
         json.dump(domains, file, indent=4)
     print(f"✅ Domains saved to {json_file}")
 
 
-async def main():
+def main():
     """
     Main entry point for the script.
 
-    Fetches all domains from Cloudflare asynchronously and saves them to a JSON file.
+    Fetches all domains from Cloudflare and saves them to a JSON file.
     If no domains are found, prints a message indicating so.
     """
-    domains = await get_all_domains()
+    domains = get_all_domains()
     if domains:
-        await save_domains_to_json(domains)
+        save_domains_to_json(domains)
     else:
         print("❗ No domains found in your Cloudflare account.")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
