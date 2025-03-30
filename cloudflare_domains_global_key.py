@@ -2,28 +2,27 @@
 
 import json
 import os
-import cloudflare
-from cloudflare import Cloudflare
+from cloudflare import Cloudflare, APIStatusError, APIError, APIConnectionError
 
 # Cloudflare API Configuration
-EMAIL = os.getenv("CLOUDFLARE_EMAIL")
-GLOBAL_API_KEY = os.getenv("CLOUDFLARE_GLOBAL_API_KEY")
 
 
 def get_all_domains():
     """Fetch all domains using the CloudFlare package."""
-    cf = Cloudflare(api_email=EMAIL, api_key=GLOBAL_API_KEY)
+    cf = Cloudflare(api_token=os.environ.get("CLOUDFLARE_API_TOKEN"))
 
     try:
         # The CloudFlare package handles pagination automatically
-        zones = cf.zones.get(params={"per_page": 50})
-        return zones
-    except cloudflare.CloudFlareAPIError as e:
+        zones = cf.zones.list()
+
+        return [domain.name for domain in zones]
+
+    except APIStatusError as e:
         print(f"❌ Error fetching domains: {e}")
-    except cloudflare.CloudFlareInternalError as e:
-        print(f"❌ Internal Cloudflare error: {e}")
-    except ConnectionError as e:
+    except APIConnectionError as e:
         print(f"❌ Connection error: {e}")
+    except APIError as e:
+        print(f"❌ Internal Cloudflare error: {e}")
 
     return []
 

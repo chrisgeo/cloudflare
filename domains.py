@@ -4,6 +4,7 @@ Google Workspace domain management script for adding domain aliases.
 This module provides functionality to bulk add domain aliases to a
 Google Workspace account using the Admin SDK Directory API.
 """
+
 import asyncio
 import csv
 
@@ -11,8 +12,10 @@ import aiohttp
 from google.oauth2 import service_account
 
 # Configuration
-SCOPES = ['https://www.googleapis.com/auth/admin.directory.domain']
-SERVICE_ACCOUNT_FILE = 'service_account.json'  # Replace with your service account JSON key file
+SCOPES = ["https://www.googleapis.com/auth/admin.directory.domain"]
+SERVICE_ACCOUNT_FILE = (
+    "service_account.json"  # Replace with your service account JSON key file
+)
 API_URL = "https://admin.googleapis.com/admin/directory/v1/customer/my_customer/domains"
 
 # Authenticate with Google Admin SDK
@@ -30,13 +33,13 @@ async def get_access_token():
 async def add_domain_alias(session, alias_domain, primary_domain):
     """Async function to add a domain alias."""
     headers = {
-        'Authorization': f'Bearer {await get_access_token()}',
-        'Content-Type': 'application/json'
+        "Authorization": f"Bearer {await get_access_token()}",
+        "Content-Type": "application/json",
     }
     payload = {
         "domainAlias": True,
         "domainName": alias_domain,
-        "parentDomainName": primary_domain
+        "parentDomainName": primary_domain,
     }
 
     async with session.post(API_URL, headers=headers, json=payload) as response:
@@ -51,16 +54,19 @@ async def bulk_upload_domains(csv_path):
     """Reads domains from CSV and adds them asynchronously."""
     async with aiohttp.ClientSession() as session:
         tasks = []
-        with open(csv_path, newline='') as file:
+        with open(csv_path, newline="", encoding="utf-8") as file:
             reader = csv.DictReader(file)
             for row in reader:
                 task = add_domain_alias(
-                    session, row['alias_domain'], row['primary_domain']
+                    session, row["alias_domain"], row["primary_domain"]
                 )
                 tasks.append(task)
 
         await asyncio.gather(*tasks)
 
+
 if __name__ == "__main__":
-    csv_file = "domains.csv"  # CSV file with 'alias_domain' and 'primary_domain' columns
+    csv_file = (
+        "domains.csv"  # CSV file with 'alias_domain' and 'primary_domain' columns
+    )
     asyncio.run(bulk_upload_domains(csv_file))
