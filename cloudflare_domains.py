@@ -1,6 +1,7 @@
-import aiohttp
 import asyncio
 import json
+
+import aiohttp
 
 # Cloudflare API Configuration
 API_TOKEN = "YOUR_CLOUDFLARE_ACCOUNT_API_TOKEN"  # Use your Account Token
@@ -40,7 +41,7 @@ async def get_all_domains():
 
 async def save_domains_to_json(domains, json_file="cloudflare_domains.json"):
     """Save the domains to a JSON file."""
-    with open(json_file, "w") as file:
+    with open(json_file, "w", encoding="utf-8") as file:
         json.dump(domains, file, indent=4)
     print(f"✅ Domains saved to {json_file}")
 

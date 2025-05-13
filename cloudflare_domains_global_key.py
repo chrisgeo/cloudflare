@@ -3,7 +3,8 @@
 
 import json
 import os
-from cloudflare import Cloudflare, APIStatusError, APIError, APIConnectionError
+
+from cloudflare import APIConnectionError, APIError, APIStatusError, Cloudflare
 
 # Cloudflare API Configuration
 
