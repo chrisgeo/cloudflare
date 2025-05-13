@@ -1,1 +1,10 @@
 *.vscode
+.trunk/**
+__pycache__/**
+**/__pycache__
+*.egg-info/**
+*.egg
+*.pyc
+.env
+*.json
+*.log

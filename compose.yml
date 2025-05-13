@@ -1,0 +1,9 @@
+services:
+    domains:
+        image: python:alpine
+        entrypoint: [ /app/entrypoint.sh ]
+        volumes:
+            - ./:/app
+        working_dir: /app
+        env_file:
+            - .env
