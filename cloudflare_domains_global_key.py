@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Fetch all domains from Cloudflare using Global API Key."""
 
 import json
