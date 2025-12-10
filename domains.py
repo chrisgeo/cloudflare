@@ -7,33 +7,87 @@ Google Workspace account using the Admin SDK Directory API.
 
 import asyncio
 import csv
+import os
 
 import aiohttp
+from google.auth.transport.requests import Request
 from google.oauth2 import service_account
 
 # Configuration
 SCOPES = ["https://www.googleapis.com/auth/admin.directory.domain"]
-SERVICE_ACCOUNT_FILE = (
-    "service_account.json"  # Replace with your service account JSON key file
-)
 API_URL = "https://admin.googleapis.com/admin/directory/v1/customer/my_customer/domains"
 
-# Authenticate with Google Admin SDK
-credentials = service_account.Credentials.from_service_account_file(
-    SERVICE_ACCOUNT_FILE, scopes=SCOPES
-)
+
+class CredentialsManager:
+    """Manages Google service account credentials with caching and reset capability.
+    
+    This class provides a more robust approach to credential management than
+    module-level globals, making it easier to test and manage multiple credential sets.
+    """
+    
+    def __init__(self):
+        self._credentials = None
+    
+    def get_credentials(self):
+        """Load and return Google service account credentials."""
+        if self._credentials is None:
+            service_account_file = os.environ.get(
+                "GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json"
+            )
+            if not os.path.exists(service_account_file):
+                raise FileNotFoundError(
+                    f"Service account file not found: {service_account_file}. "
+                    f"Set GOOGLE_SERVICE_ACCOUNT_FILE environment variable to specify the path."
+                )
+            self._credentials = service_account.Credentials.from_service_account_file(
+                service_account_file, scopes=SCOPES
+            )
+        return self._credentials
+    
+    def get_access_token(self):
+        """Fetches OAuth 2.0 access token for API requests."""
+        credentials = self.get_credentials()
+        # Refresh the token if it's expired or not yet obtained
+        if not credentials.valid:
+            credentials.refresh(Request())
+        return credentials.token
+    
+    def reset(self):
+        """Reset cached credentials. Useful for testing or credential rotation."""
+        self._credentials = None
 
 
-async def get_access_token():
-    """Fetches OAuth 2.0 access token for API requests."""
-    request = credentials.with_scopes(SCOPES)
-    return request.token
+# Default credentials manager instance
+_credentials_manager = CredentialsManager()
+
+
+def get_credentials():
+    """Load and return Google service account credentials.
+    
+    This is a convenience function that uses the default credentials manager.
+    For more control, use CredentialsManager directly.
+    """
+    return _credentials_manager.get_credentials()
+
+
+def get_access_token():
+    """Fetches OAuth 2.0 access token for API requests.
+    
+    This is a convenience function that uses the default credentials manager.
+    For more control, use CredentialsManager directly.
+    """
+    return _credentials_manager.get_access_token()
+
+
+def reset_credentials():
+    """Reset cached credentials. Useful for testing or credential rotation."""
+    _credentials_manager.reset()
 
 
 async def add_domain_alias(session, alias_domain, primary_domain):
     """Async function to add a domain alias."""
     headers = {
-        "Authorization": f"Bearer {await get_access_token()}",
+        "Authorization": f"Bearer {get_access_token()}",
         "Content-Type": "application/json",
     }
     payload = {
