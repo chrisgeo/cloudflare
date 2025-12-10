@@ -46,9 +46,10 @@ def get_api_config():
     """Get Cloudflare API configuration.
 
     Configuration is loaded in the following order of precedence:
-    1. JSON credentials file (cloudflare_credentials.json or CLOUDFLARE_CREDENTIALS_FILE env var)
-    2. INI credentials file (cloudflare_credentials.ini or CLOUDFLARE_CREDENTIALS_FILE env var)
-    3. Environment variables (CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID)
+    1. Custom credentials file (CLOUDFLARE_CREDENTIALS_FILE env var) - supports JSON or INI
+    2. Default JSON credentials file (cloudflare_credentials.json)
+    3. Default INI credentials file (cloudflare_credentials.ini)
+    4. Environment variables (CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID)
     """
     api_token = None
     account_id = None
@@ -56,23 +57,42 @@ def get_api_config():
     # Check for custom credentials file path from environment
     credentials_file = os.environ.get("CLOUDFLARE_CREDENTIALS_FILE")
 
-    # Try loading from JSON file
-    json_file = credentials_file if credentials_file and credentials_file.endswith(".json") else DEFAULT_JSON_CREDENTIALS_FILE
-    if os.path.exists(json_file):
+    # If custom credentials file is specified, try to load it first
+    if credentials_file and os.path.exists(credentials_file):
         try:
-            api_token, account_id = load_credentials_from_json(json_file)
+            if credentials_file.endswith(".json"):
+                api_token, account_id = load_credentials_from_json(credentials_file)
+            elif credentials_file.endswith(".ini"):
+                api_token, account_id = load_credentials_from_ini(credentials_file)
+            else:
+                # Try JSON first, then INI for unknown extensions
+                try:
+                    api_token, account_id = load_credentials_from_json(credentials_file)
+                except json.JSONDecodeError:
+                    api_token, account_id = load_credentials_from_ini(credentials_file)
+
             if api_token and account_id:
                 base_url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/zones"
                 headers = {"Authorization": f"Bearer {api_token}", "Content-Type": "application/json"}
                 return base_url, headers
-        except (json.JSONDecodeError, KeyError) as e:
+        except (json.JSONDecodeError, configparser.Error) as e:
+            print(f"⚠️ Warning: Failed to parse credentials file: {e}")
+
+    # Try loading from default JSON file
+    if os.path.exists(DEFAULT_JSON_CREDENTIALS_FILE):
+        try:
+            api_token, account_id = load_credentials_from_json(DEFAULT_JSON_CREDENTIALS_FILE)
+            if api_token and account_id:
+                base_url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/zones"
+                headers = {"Authorization": f"Bearer {api_token}", "Content-Type": "application/json"}
+                return base_url, headers
+        except json.JSONDecodeError as e:
             print(f"⚠️ Warning: Failed to parse JSON credentials file: {e}")
 
-    # Try loading from INI file
-    ini_file = credentials_file if credentials_file and credentials_file.endswith(".ini") else DEFAULT_INI_CREDENTIALS_FILE
-    if os.path.exists(ini_file):
+    # Try loading from default INI file
+    if os.path.exists(DEFAULT_INI_CREDENTIALS_FILE):
         try:
-            api_token, account_id = load_credentials_from_ini(ini_file)
+            api_token, account_id = load_credentials_from_ini(DEFAULT_INI_CREDENTIALS_FILE)
             if api_token and account_id:
                 base_url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/zones"
                 headers = {"Authorization": f"Bearer {api_token}", "Content-Type": "application/json"}
@@ -87,6 +107,7 @@ def get_api_config():
     if not api_token:
         raise ValueError(
             "Cloudflare API token not found. Provide it via:\n"
+            "  - CLOUDFLARE_CREDENTIALS_FILE environment variable\n"
             "  - cloudflare_credentials.json file\n"
             "  - cloudflare_credentials.ini file\n"
             "  - CLOUDFLARE_API_TOKEN environment variable"
@@ -94,6 +115,7 @@ def get_api_config():
     if not account_id:
         raise ValueError(
             "Cloudflare account ID not found. Provide it via:\n"
+            "  - CLOUDFLARE_CREDENTIALS_FILE environment variable\n"
             "  - cloudflare_credentials.json file\n"
             "  - cloudflare_credentials.ini file\n"
             "  - CLOUDFLARE_ACCOUNT_ID environment variable"

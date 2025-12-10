@@ -114,13 +114,42 @@ class TestGetApiConfig:
             assert headers["Authorization"] == "Bearer json_token"
 
     def test_get_api_config_custom_credentials_file(self, tmp_path):
-        """Test loading configuration from custom credentials file path."""
+        """Test loading configuration from custom JSON credentials file path."""
         json_file = tmp_path / "custom_creds.json"
         json_file.write_text('{"api_token": "custom_token", "account_id": "custom_account"}')
 
         with patch.dict(os.environ, {"CLOUDFLARE_CREDENTIALS_FILE": str(json_file)}, clear=True):
             base_url, headers = cloudflare_domains.get_api_config()
             
+            assert headers["Authorization"] == "Bearer custom_token"
+
+    def test_get_api_config_custom_ini_credentials_file(self, tmp_path):
+        """Test loading configuration from custom INI credentials file path."""
+        ini_file = tmp_path / "custom_creds.ini"
+        ini_file.write_text("[cloudflare]\napi_token = custom_ini_token\naccount_id = custom_ini_account\n")
+
+        with patch.dict(os.environ, {"CLOUDFLARE_CREDENTIALS_FILE": str(ini_file)}, clear=True):
+            base_url, headers = cloudflare_domains.get_api_config()
+            
+            assert headers["Authorization"] == "Bearer custom_ini_token"
+            assert base_url == "https://api.cloudflare.com/client/v4/accounts/custom_ini_account/zones"
+
+    def test_get_api_config_custom_file_takes_precedence(self, tmp_path, monkeypatch):
+        """Test that custom file takes precedence over default files."""
+        # Create default JSON file
+        default_json = tmp_path / "cloudflare_credentials.json"
+        default_json.write_text('{"api_token": "default_token", "account_id": "default_account"}')
+        
+        # Create custom file in different location
+        custom_file = tmp_path / "custom" / "creds.json"
+        custom_file.parent.mkdir(parents=True, exist_ok=True)
+        custom_file.write_text('{"api_token": "custom_token", "account_id": "custom_account"}')
+
+        monkeypatch.chdir(tmp_path)
+        with patch.dict(os.environ, {"CLOUDFLARE_CREDENTIALS_FILE": str(custom_file)}, clear=True):
+            base_url, headers = cloudflare_domains.get_api_config()
+            
+            # Custom file should take precedence
             assert headers["Authorization"] == "Bearer custom_token"
 
     def test_get_api_config_missing_token(self):
