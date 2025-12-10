@@ -5,11 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# We need to mock the credentials loading before importing
-with patch.dict(os.environ, {"GOOGLE_SERVICE_ACCOUNT_FILE": "/nonexistent/file.json"}):
-    with patch("os.path.exists", return_value=False):
-        # Import but don't trigger credential loading yet
-        pass
+# The import of 'domains' is deferred to each test function, after mocking environment and file existence.
 
 
 class TestGetCredentials:

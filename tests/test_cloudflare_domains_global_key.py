@@ -4,7 +4,7 @@ import json
 import os
 from unittest.mock import MagicMock, patch
 
-import pytest
+
 
 # Import the module under test
 import cloudflare_domains_global_key

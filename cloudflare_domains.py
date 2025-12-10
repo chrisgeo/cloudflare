@@ -18,10 +18,15 @@ def load_credentials_from_json(file_path):
         "api_token": "your_token",
         "account_id": "your_account_id"
     }
+    Returns (None, None) if the file cannot be read or parsed.
     """
-    with open(file_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    return data.get("api_token"), data.get("account_id")
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data.get("api_token"), data.get("account_id")
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"❌ Error loading credentials from JSON file '{file_path}': {e}")
+        return None, None
 
 
 def load_credentials_from_ini(file_path):
@@ -68,8 +73,11 @@ def get_api_config():
                 # Try JSON first, then INI for unknown extensions
                 try:
                     api_token, account_id = load_credentials_from_json(credentials_file)
-                except json.JSONDecodeError:
-                    api_token, account_id = load_credentials_from_ini(credentials_file)
+                except json.JSONDecodeError as json_err:
+                    try:
+                        api_token, account_id = load_credentials_from_ini(credentials_file)
+                    except configparser.Error as ini_err:
+                        print(f"⚠️ Warning: Failed to parse credentials file as INI: {ini_err}")
 
             if api_token and account_id:
                 base_url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/zones"
@@ -110,12 +118,12 @@ def get_api_config():
         return base_url, headers
 
     raise ValueError(
-        f"Cloudflare credentials not found. Provide them via:\n"
-        f"  - CLOUDFLARE_CREDENTIALS_FILE environment variable\n"
-        f"  - cloudflare_credentials.json file\n"
-        f"  - cloudflare_credentials.ini file\n"
-        f"  - CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID environment variables\n"
-        f"Current values: account_id={account_id} token={'set' if api_token else None}"
+        "Cloudflare credentials not found. Provide them via:\n"
+        "  - CLOUDFLARE_CREDENTIALS_FILE environment variable\n"
+        "  - cloudflare_credentials.json file\n"
+        "  - cloudflare_credentials.ini file\n"
+        "  - CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID environment variables\n"
+        "Current values: account_id: " + ("provided" if account_id else "not provided") + ", API token: " + ("provided" if api_token else "not provided")
     )
 
 
