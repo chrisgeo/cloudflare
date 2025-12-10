@@ -28,15 +28,44 @@ This project includes multiple approaches for domain management:
 
 ## Environment Variables
 
-### Required Environment Variables
+### Cloudflare Credentials
 
+Cloudflare credentials can be provided in multiple ways (in order of precedence):
+
+#### Option 1: JSON Credentials File
+Create a `cloudflare_credentials.json` file in the project root:
+```json
+{
+    "api_token": "your_cloudflare_api_token_here",
+    "account_id": "your_cloudflare_account_id_here"
+}
+```
+
+#### Option 2: INI Credentials File
+Create a `cloudflare_credentials.ini` file in the project root:
+```ini
+[cloudflare]
+api_token = your_cloudflare_api_token_here
+account_id = your_cloudflare_account_id_here
+```
+
+#### Option 3: Environment Variables
 Create a `.env` file in the project root with the following variables:
 
 ```bash
 # Cloudflare API Configuration
 CLOUDFLARE_API_TOKEN=your_cloudflare_api_token_here
 CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id_here
+```
 
+You can also specify a custom credentials file path using:
+```bash
+CLOUDFLARE_CREDENTIALS_FILE=/path/to/your/credentials.json
+```
+
+### Google Workspace Configuration
+
+```bash
 # Google Workspace Configuration (for domains.py)
 GOOGLE_SERVICE_ACCOUNT_FILE=path/to/service_account.json
 ```

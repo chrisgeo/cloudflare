@@ -10,32 +10,132 @@ import pytest
 import cloudflare_domains
 
 
+class TestLoadCredentialsFromJson:
+    """Tests for load_credentials_from_json function."""
+
+    def test_load_credentials_from_json_success(self, tmp_path):
+        """Test successful loading of credentials from JSON file."""
+        json_file = tmp_path / "credentials.json"
+        json_file.write_text('{"api_token": "json_token", "account_id": "json_account"}')
+
+        api_token, account_id = cloudflare_domains.load_credentials_from_json(str(json_file))
+
+        assert api_token == "json_token"
+        assert account_id == "json_account"
+
+    def test_load_credentials_from_json_missing_fields(self, tmp_path):
+        """Test loading credentials when fields are missing."""
+        json_file = tmp_path / "credentials.json"
+        json_file.write_text('{"api_token": "json_token"}')
+
+        api_token, account_id = cloudflare_domains.load_credentials_from_json(str(json_file))
+
+        assert api_token == "json_token"
+        assert account_id is None
+
+
+class TestLoadCredentialsFromIni:
+    """Tests for load_credentials_from_ini function."""
+
+    def test_load_credentials_from_ini_success(self, tmp_path):
+        """Test successful loading of credentials from INI file."""
+        ini_file = tmp_path / "credentials.ini"
+        ini_file.write_text("[cloudflare]\napi_token = ini_token\naccount_id = ini_account\n")
+
+        api_token, account_id = cloudflare_domains.load_credentials_from_ini(str(ini_file))
+
+        assert api_token == "ini_token"
+        assert account_id == "ini_account"
+
+    def test_load_credentials_from_ini_missing_section(self, tmp_path):
+        """Test loading credentials when cloudflare section is missing."""
+        ini_file = tmp_path / "credentials.ini"
+        ini_file.write_text("[other]\nkey = value\n")
+
+        api_token, account_id = cloudflare_domains.load_credentials_from_ini(str(ini_file))
+
+        assert api_token is None
+        assert account_id is None
+
+
 class TestGetApiConfig:
     """Tests for get_api_config function."""
 
-    def test_get_api_config_success(self):
-        """Test successful configuration retrieval."""
+    def test_get_api_config_from_env_success(self):
+        """Test successful configuration retrieval from environment variables."""
         with patch.dict(os.environ, {
             "CLOUDFLARE_API_TOKEN": "test_token",
             "CLOUDFLARE_ACCOUNT_ID": "test_account_id"
-        }):
+        }, clear=True):
+            with patch("os.path.exists", return_value=False):
+                base_url, headers = cloudflare_domains.get_api_config()
+                
+                assert base_url == "https://api.cloudflare.com/client/v4/accounts/test_account_id/zones"
+                assert headers["Authorization"] == "Bearer test_token"
+                assert headers["Content-Type"] == "application/json"
+
+    def test_get_api_config_from_json_file(self, tmp_path, monkeypatch):
+        """Test loading configuration from JSON credentials file."""
+        json_file = tmp_path / "cloudflare_credentials.json"
+        json_file.write_text('{"api_token": "json_token", "account_id": "json_account"}')
+
+        monkeypatch.chdir(tmp_path)
+        with patch.dict(os.environ, {}, clear=True):
             base_url, headers = cloudflare_domains.get_api_config()
             
-            assert base_url == "https://api.cloudflare.com/client/v4/accounts/test_account_id/zones"
-            assert headers["Authorization"] == "Bearer test_token"
-            assert headers["Content-Type"] == "application/json"
+            assert base_url == "https://api.cloudflare.com/client/v4/accounts/json_account/zones"
+            assert headers["Authorization"] == "Bearer json_token"
+
+    def test_get_api_config_from_ini_file(self, tmp_path, monkeypatch):
+        """Test loading configuration from INI credentials file."""
+        ini_file = tmp_path / "cloudflare_credentials.ini"
+        ini_file.write_text("[cloudflare]\napi_token = ini_token\naccount_id = ini_account\n")
+
+        monkeypatch.chdir(tmp_path)
+        with patch.dict(os.environ, {}, clear=True):
+            base_url, headers = cloudflare_domains.get_api_config()
+            
+            assert base_url == "https://api.cloudflare.com/client/v4/accounts/ini_account/zones"
+            assert headers["Authorization"] == "Bearer ini_token"
+
+    def test_get_api_config_json_takes_precedence_over_ini(self, tmp_path, monkeypatch):
+        """Test that JSON file takes precedence over INI file."""
+        json_file = tmp_path / "cloudflare_credentials.json"
+        json_file.write_text('{"api_token": "json_token", "account_id": "json_account"}')
+        
+        ini_file = tmp_path / "cloudflare_credentials.ini"
+        ini_file.write_text("[cloudflare]\napi_token = ini_token\naccount_id = ini_account\n")
+
+        monkeypatch.chdir(tmp_path)
+        with patch.dict(os.environ, {}, clear=True):
+            base_url, headers = cloudflare_domains.get_api_config()
+            
+            # JSON should take precedence
+            assert headers["Authorization"] == "Bearer json_token"
+
+    def test_get_api_config_custom_credentials_file(self, tmp_path):
+        """Test loading configuration from custom credentials file path."""
+        json_file = tmp_path / "custom_creds.json"
+        json_file.write_text('{"api_token": "custom_token", "account_id": "custom_account"}')
+
+        with patch.dict(os.environ, {"CLOUDFLARE_CREDENTIALS_FILE": str(json_file)}, clear=True):
+            base_url, headers = cloudflare_domains.get_api_config()
+            
+            assert headers["Authorization"] == "Bearer custom_token"
 
     def test_get_api_config_missing_token(self):
         """Test error when API token is missing."""
         with patch.dict(os.environ, {"CLOUDFLARE_ACCOUNT_ID": "test_account_id"}, clear=True):
-            with pytest.raises(ValueError, match="CLOUDFLARE_API_TOKEN"):
-                cloudflare_domains.get_api_config()
+            with patch("os.path.exists", return_value=False):
+                with pytest.raises(ValueError, match="API token not found"):
+                    cloudflare_domains.get_api_config()
 
     def test_get_api_config_missing_account_id(self):
         """Test error when account ID is missing."""
         with patch.dict(os.environ, {"CLOUDFLARE_API_TOKEN": "test_token"}, clear=True):
-            with pytest.raises(ValueError, match="CLOUDFLARE_ACCOUNT_ID"):
-                cloudflare_domains.get_api_config()
+            with patch("os.path.exists", return_value=False):
+                with pytest.raises(ValueError, match="account ID not found"):
+                    cloudflare_domains.get_api_config()
 
 
 class TestFetchDomains:
