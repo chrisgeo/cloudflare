@@ -36,25 +36,33 @@ def load_credentials_from_ini(file_path):
     [cloudflare]
     api_token = your_token
     account_id = your_account_id
+    
+    Returns (None, None) if the file cannot be read or parsed.
     """
-    config = configparser.ConfigParser()
-    config.read(file_path, encoding="utf-8")
-    if "cloudflare" in config:
-        return (
-            config.get("cloudflare", "api_token", fallback=None),
-            config.get("cloudflare", "account_id", fallback=None),
-        )
-    return None, None
+    try:
+        config = configparser.ConfigParser()
+        config.read(file_path, encoding="utf-8")
+        if "cloudflare" in config:
+            return (
+                config.get("cloudflare", "api_token", fallback=None),
+                config.get("cloudflare", "account_id", fallback=None),
+            )
+        return None, None
+    except (OSError, configparser.Error) as e:
+        print(f"❌ Error loading credentials from INI file '{file_path}': {e}")
+        return None, None
 
 
 def get_api_config():
     """Get Cloudflare API configuration.
 
-    Configuration is loaded in the following order of precedence:
+    Configuration is loaded in the following order of precedence (highest to lowest):
     1. Custom credentials file (CLOUDFLARE_CREDENTIALS_FILE env var) - supports JSON or INI
     2. Default JSON credentials file (cloudflare_credentials.json)
     3. Default INI credentials file (cloudflare_credentials.ini)
-    4. Environment variables (CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID)
+    4. Environment variables (CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID) - lowest precedence
+    
+    The first source that provides valid credentials will be used.
     """
     api_token = None
     account_id = None
