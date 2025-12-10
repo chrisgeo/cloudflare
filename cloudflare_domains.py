@@ -103,28 +103,20 @@ def get_api_config():
     # Fall back to environment variables
     api_token = os.environ.get("CLOUDFLARE_API_TOKEN")
     account_id = os.environ.get("CLOUDFLARE_ACCOUNT_ID")
+    if api_token and account_id:
+        base_url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/zones"
+        headers = {"Authorization": f"Bearer {api_token}", "Content-Type": "application/json"}
 
-    if not api_token:
-        raise ValueError(
-            "Cloudflare API token not found. Provide it via:\n"
-            "  - CLOUDFLARE_CREDENTIALS_FILE environment variable\n"
-            "  - cloudflare_credentials.json file\n"
-            "  - cloudflare_credentials.ini file\n"
-            "  - CLOUDFLARE_API_TOKEN environment variable"
-        )
-    if not account_id:
-        raise ValueError(
-            "Cloudflare account ID not found. Provide it via:\n"
-            "  - CLOUDFLARE_CREDENTIALS_FILE environment variable\n"
-            "  - cloudflare_credentials.json file\n"
-            "  - cloudflare_credentials.ini file\n"
-            "  - CLOUDFLARE_ACCOUNT_ID environment variable"
-        )
+        return base_url, headers
 
-    base_url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/zones"
-    headers = {"Authorization": f"Bearer {api_token}", "Content-Type": "application/json"}
-
-    return base_url, headers
+    raise ValueError(
+        f"Cloudflare credentials not found. Provide them via:\n"
+        f"  - CLOUDFLARE_CREDENTIALS_FILE environment variable\n"
+        f"  - cloudflare_credentials.json file\n"
+        f"  - cloudflare_credentials.ini file\n"
+        f"  - CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID environment variables\n"
+        f"Current values: account_id={account_id} token={'set' if api_token else None}"
+    )
 
 
 async def fetch_domains(session, base_url, headers, page=1, per_page=50):

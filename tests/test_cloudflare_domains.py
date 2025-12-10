@@ -156,14 +156,21 @@ class TestGetApiConfig:
         """Test error when API token is missing."""
         with patch.dict(os.environ, {"CLOUDFLARE_ACCOUNT_ID": "test_account_id"}, clear=True):
             with patch("os.path.exists", return_value=False):
-                with pytest.raises(ValueError, match="API token not found"):
+                with pytest.raises(ValueError, match="credentials not found"):
                     cloudflare_domains.get_api_config()
 
     def test_get_api_config_missing_account_id(self):
         """Test error when account ID is missing."""
         with patch.dict(os.environ, {"CLOUDFLARE_API_TOKEN": "test_token"}, clear=True):
             with patch("os.path.exists", return_value=False):
-                with pytest.raises(ValueError, match="account ID not found"):
+                with pytest.raises(ValueError, match="credentials not found"):
+                    cloudflare_domains.get_api_config()
+
+    def test_get_api_config_missing_both(self):
+        """Test error when both credentials are missing."""
+        with patch.dict(os.environ, {}, clear=True):
+            with patch("os.path.exists", return_value=False):
+                with pytest.raises(ValueError, match="credentials not found"):
                     cloudflare_domains.get_api_config()
 
 
